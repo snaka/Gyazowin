@@ -9,6 +9,10 @@ HINSTANCE hInst;							// 現在のインターフェイス
 TCHAR *szTitle			= _T("Gyazo");		// タイトル バーのテキスト
 TCHAR *szWindowClass	= _T("GYAZOWIN");	// メイン ウィンドウ クラス名
 TCHAR *szWindowClassL	= _T("GYAZOWINL");	// レイヤー ウィンドウ クラス名
+TCHAR *szDestinationHost;					// 投稿先のホスト名
+TCHAR *szDestinationPort;					// 接続先ホストのポート番号
+TCHAR *szDestinationPath;					// 投稿先のパス名
+
 HWND hLayerWnd;
 
 int ofX, ofY;	// 画面オフセット
@@ -37,7 +41,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
                      int       nCmdShow)
 {
 	UNREFERENCED_PARAMETER(hPrevInstance);
-	UNREFERENCED_PARAMETER(lpCmdLine);
+
+	// コマンドラインパラメタから投稿先のホスト名, パス名取得
+	szDestinationHost = _tcstok(lpCmdLine, _T(" "));
+	szDestinationPort = _tcstok(NULL, _T(" "));
+	szDestinationPath = _tcstok(NULL, _T(" "));
 
 	MSG msg;
 
@@ -744,8 +752,14 @@ std::string getId()
 // PNG ファイルをアップロードする.
 BOOL uploadFile(HWND hwnd, LPCTSTR fileName)
 {
-	const TCHAR* UPLOAD_SERVER	= _T("gyazo.com");
-	const TCHAR* UPLOAD_PATH	= _T("/upload.cgi");
+	const TCHAR* UPLOAD_SERVER;
+	const TCHAR* UPLOAD_PATH;
+	int	 UPLOAD_PORT;
+
+	// 接続先を決める（コマンドラインで指定されてたら優先する）
+	UPLOAD_SERVER = (szDestinationHost) ? szDestinationHost : _T("gyazo.com");
+	UPLOAD_PORT   = (szDestinationPort) ? _ttoi(szDestinationPort) : INTERNET_DEFAULT_HTTP_PORT;
+	UPLOAD_PATH   = (szDestinationPath) ? szDestinationPath : _T("/upload.cgi");
 
 	const char*  sBoundary = "----BOUNDARYBOUNDARY----";		// boundary
 	const char   sCrLf[]   = { 0xd, 0xa, 0x0 };					// 改行(CR+LF)
@@ -811,7 +825,7 @@ BOOL uploadFile(HWND hwnd, LPCTSTR fileName)
 	
 	// 接続先
 	HINTERNET hConnection = InternetConnect(hSession, 
-		UPLOAD_SERVER, INTERNET_DEFAULT_HTTP_PORT,
+		UPLOAD_SERVER, UPLOAD_PORT,
 		NULL, NULL, INTERNET_SERVICE_HTTP, 0, NULL);
 	if(NULL == hSession) {
 		MessageBox(hwnd, _T("Cannot initiate connection"),
@@ -865,8 +879,7 @@ BOOL uploadFile(HWND hwnd, LPCTSTR fileName)
 
 			//URLをwooparに変換
 			std::string woopar;
-			woopar = "http://gyazo.com/" + result.substr(17);
-
+			woopar = result.substr(0);
 
 			// クリップボードに URL をコピー
 			setClipBoardText(woopar.c_str());
